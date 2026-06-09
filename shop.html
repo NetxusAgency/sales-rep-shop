@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Store Catalog</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-button-color: #3390ec;
+            --tg-theme-button-text-color: #ffffff;
+            --tg-theme-secondary-bg-color: #f4f4f5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            margin: 0;
+            padding-bottom: 80px; /* Space for sticky button */
+        }
+
+        .header {
+            padding: 16px;
+            text-align: center;
+            background-color: var(--tg-theme-secondary-bg-color);
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 12px;
+        }
+
+        .product-card {
+            background-color: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .product-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            background-color: #ddd;
+        }
+
+        .product-info {
+            padding: 10px;
+            flex-grow: 1;
+        }
+
+        .product-name {
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 4px;
+        }
+
+        .product-price {
+            color: var(--tg-theme-button-color);
+            font-weight: bold;
+        }
+
+        .add-btn {
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            padding: 8px;
+            margin: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .sticky-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--tg-theme-bg-color);
+            padding: 12px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            display: none; /* Hidden by default */
+        }
+
+        .main-btn {
+            width: 100%;
+            background-color: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+        }
+
+        /* Cart Page Styling */
+        #cart-page {
+            display: none;
+            padding: 16px;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .empty-msg {
+            text-align: center;
+            padding: 40px;
+            color: gray;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="catalog-page">
+        <div class="header">🛍️ Product Catalog</div>
+        <div id="product-grid" class="product-grid">
+            <!-- Products injected here -->
+        </div>
+    </div>
+
+    <div id="cart-page">
+        <div class="header">🛒 Your Selection</div>
+        <div id="cart-list"></div>
+        <button onclick="showCatalog()" style="margin-top: 10px; width: 100%; padding: 10px; background: none; border: 1px solid gray; border-radius: 8px; color: var(--tg-theme-text-color);">Add More Items</button>
+    </div>
+
+    <div id="sticky-footer" class="sticky-footer">
+        <button id="footer-btn" class="main-btn" onclick="footerAction()">View Order</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        let products = [];
+        let cart = {}; // { name: {price, quantity} }
+
+        // Load Products
+        fetch('products.json')
+            .then(res => res.json())
+            .then(data => {
+                products = data;
+                renderProducts();
+            })
+            .catch(err => {
+                console.error("Failed to load products:", err);
+                document.getElementById('product-grid').innerHTML = '<p class="empty-msg">No products found. Please run the indexer.</p>';
+            });
+
+        function renderProducts() {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            products.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.innerHTML = `
+                    <img src="${p.image}" class="product-image" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                    <div class="product-info">
+                        <div class="product-name">${p.name}</div>
+                        <div class="product-price">${p.price}</div>
+                    </div>
+                    <button class="add-btn" onclick="addToCart('${p.name}', ${p.price})">Add to Cart</button>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function addToCart(name, price) {
+            if (cart[name]) {
+                cart[name].quantity += 1;
+            } else {
+                cart[name] = { price, quantity: 1 };
+            }
+            updateFooter();
+        }
+
+        function updateFooter() {
+            const footer = document.getElementById('sticky-footer');
+            const btn = document.getElementById('footer-btn');
+            const totalItems = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
+
+            if (totalItems > 0) {
+                footer.style.display = 'block';
+                const isCartPage = document.getElementById('cart-page').style.display === 'block';
+                btn.innerText = isCartPage ? "Confirm & Pay" : `View Order (${totalItems})`;
+            } else {
+                footer.style.display = 'none';
+            }
+        }
+
+        function footerAction() {
+            const isCartPage = document.getElementById('cart-page').style.display === 'block';
+            if (isCartPage) {
+                sendOrderToBot();
+            } else {
+                showCart();
+            }
+        }
+
+        function showCart() {
+            document.getElementById('catalog-page').style.display = 'none';
+            document.getElementById('cart-page').style.display = 'block';
+            
+            const list = document.getElementById('cart-list');
+            list.innerHTML = '';
+            
+            Object.entries(cart).forEach(([name, item]) => {
+                const row = document.createElement('div');
+                row.className = 'cart-item';
+                row.innerHTML = `
+                    <span>${name} (x${item.quantity})</span>
+                    <span>${item.price * item.quantity}</span>
+                `;
+                list.appendChild(row);
+            });
+            updateFooter();
+        }
+
+        function showCatalog() {
+            document.getElementById('catalog-page').style.display = 'block';
+            document.getElementById('cart-page').style.display = 'none';
+            updateFooter();
+        }
+
+        function sendOrderToBot() {
+            const items = Object.entries(cart).map(([name, data]) => ({
+                name,
+                price: data.price,
+                quantity: data.quantity
+            }));
+            
+            const result = JSON.stringify({ items });
+            tg.sendData(result); // Sends data back to bot and CLOSES app
+        }
+    </script>
+</body>
+</html>
