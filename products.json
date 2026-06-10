@@ -2,21 +2,21 @@
     {
         "name": "Zirconia Necklace",
         "price": 5500,
-        "image": "https://t.me/salezproducts/3"
+        "image": "img/product_3.jpg"
     },
     {
         "name": "rosemary",
         "price": 5000,
-        "image": "https://t.me/salezproducts/4"
+        "image": "img/product_4.jpg"
     },
     {
         "name": "fan",
         "price": 3000,
-        "image": "https://t.me/salezproducts/5"
+        "image": "img/product_5.jpg"
     },
     {
         "name": "sunflower",
         "price": 600,
-        "image": "https://t.me/salezproducts/6"
+        "image": "img/product_6.jpg"
     }
 ]
